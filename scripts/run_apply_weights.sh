@@ -2,15 +2,15 @@
 set -euo pipefail
 shopt -s nullglob
 
-# Directories
-features_dir="feature"
-weights_dir="1_percolator"
-outdir="2_linearcombo"
+script_dir="$(cd -- "$(dirname "$0")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+
+features_dir="${repo_root}/features"
+weights_dir="${repo_root}/1_percolator"
+outdir="${repo_root}/2_linearcombo"
 mkdir -p "$outdir"
 
-# Python script (same directory as this bash file)
-script_dir="$(cd -- "$(dirname "$0")" && pwd)"
-python_script="${script_dir}/apply_weights_to_features.py"
+python_script="${repo_root}/python/apply_weights_to_features.py"
 
 # Loop over all average weight files like:
 #   tcell100p_features_nontarget_average_12_weights.txt

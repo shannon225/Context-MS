@@ -6,7 +6,7 @@ Apply Benjamini–Hochberg FDR and monotone q-values to a column of p-values
 in all *_label0.tsv files in a given directory.
 
 Usage:
-    python3 bh_fdr.py --input-dir /path/to/2_linearcombo --column column
+    python3 bh_fdr.py --input-dir /path/to/2_linearcombo --column score
 """
 
 import argparse
@@ -83,7 +83,7 @@ def bh_fdr_from_pvalues(pvals: np.ndarray):
     return fdr, qvalues
 
 
-def process_file(path: str, column: str):
+def process_file(path: str, column: str = "score"):
     """
     Read a TSV, compute BH FDR/q-values on the given column,
     and write back in place.
@@ -120,8 +120,8 @@ def main():
     parser.add_argument(
         "--column",
         "-c",
-        default="column",
-        help="Name of the p-value column to use (default: 'column')",
+        default="score",
+        help="Name of the column to use (default: 'score')",
     )
     args = parser.parse_args()
 
@@ -132,4 +132,11 @@ def main():
         raise SystemExit(f"No files matching *_label0.tsv in {args.input_dir}")
 
     print(f"Found {len(files)} files in {args.input_dir} matching *_label0.tsv")
-    print(f"Using co
+    print(f"Using column '{args.column}' for p-values")
+
+    for path in files:
+        process_file(path)
+
+
+if __name__ == "__main__":
+    main()

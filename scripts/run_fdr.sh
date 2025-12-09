@@ -3,11 +3,13 @@ set -Eeuo pipefail
 shopt -s nullglob
 
 script_dir="$(cd -- "$(dirname "$0")" && pwd)"
-cd "$script_dir"
+repo_root="$(cd "$script_dir/.." && pwd)"
+cd "$repo_root"
 
 indir="2_linearcombo"
-python_script="${script_dir}/bh_fdr.py"
-column_name="column"   # change this if your p-value column has a different name
+python_script="${repo_root}/python/bh_fdr.py"
+
+column_name="pvalue"   # change this if your p-value column has a different name
 
 if [[ ! -f "$python_script" ]]; then
   echo "❌ bh_fdr.py not found at: $python_script" >&2

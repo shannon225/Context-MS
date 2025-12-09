@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Directory containing your files
 indir="3_pep"
-
-# Path to your Python plotting script
 plot_script="plot_pyispep_vs_score.py"
 
 # Loop over all files matching pattern

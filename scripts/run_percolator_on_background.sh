@@ -2,15 +2,23 @@
 set -euo pipefail
 shopt -s nullglob
 
-# Directories
-indir="feature"
-outdir="1_percolator"
+script_dir="$(cd -- "$(dirname "$0")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+
+percolator_bin="${repo_root}/percolator/build/src/percolator"
+
+if [[ ! -x "$percolator_bin" ]]; then
+  echo "Error: percolator binary not found at: $percolator_bin" >&2
+  echo "Hint: cd third_party/percolator && mkdir -p build && cd build && cmake .. && make -j4" >&2
+  exit 1
+fi
+
+indir="${repo_root}/features"
+outdir="${repo_root}/1_percolator"
 mkdir -p "$outdir"
 
-# Collect matching inputs from indir (safe even if none match)
 inputs=( "$indir"/*_features_nontarget*.tsv )
 
-# Exit early (or just warn) if no files found
 if ((${#inputs[@]} == 0)); then
   echo "No files matched: $indir/*_features_nontarget*.tsv"
   exit 0
@@ -19,12 +27,11 @@ fi
 for infile in "${inputs[@]}"; do
   base="$(basename "$infile" .tsv)"
 
-  # Loop over seeds 1 through 5
   for seed in {1..5}; do
-    out_weights="$outdir/${base}_seed${seed}_weights.txt"
-    console="$outdir/${base}_seed${seed}_console.txt"
+    out_weights="${outdir}/${base}_seed${seed}_weights.txt"
+    console="${outdir}/${base}_seed${seed}_console.txt"
 
-    /mnt/c/users/m334793/percolator/build/src/percolator \
+    "${percolator_bin}" \
       --seed "$seed" \
       --weights "$out_weights" \
       --protein-report-duplicates \

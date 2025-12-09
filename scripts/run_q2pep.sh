@@ -3,7 +3,8 @@ set -Eeuo pipefail
 shopt -s nullglob
 
 script_dir="$(cd -- "$(dirname "$0")" && pwd)"
-cd "$script_dir"
+repo_root="$(cd "$script_dir/.." && pwd)"
+cd "$repo_root"
 
 # Input: label0 files from apply_weights
 label0_dir="2_linearcombo"
@@ -37,17 +38,25 @@ for f in "${label0_files[@]}"; do
   context_in="${pep_dir}/context_pep_seed${seed}.tsv"
   context_out="${pep_dir}/context_pep_seed${seed}_ipspline.txt"
 
-  # Copy the label0 table into 3_pep as the context_pep file expected by pyIsoPEP
   echo "🔹 Preparing seed ${seed}:"
   echo "   label0: $f"
   echo "   ctx in: $context_in"
   echo "   ctx out: $context_out"
 
+  # Copy the label0 table into 3_pep as the context_pep file expected by pyIsoPEP
   cp "$f" "$context_in"
 
+  # Absolute path for Podman volume (important!)
+  host_pep_dir="$(cd "$pep_dir" && pwd)"
+
+  # Work around WSLg XDG_RUNTIME_DIR ownership issue
+  if [[ -n "${XDG_RUNTIME_DIR:-}" && ! -O "$XDG_RUNTIME_DIR" ]]; then
+    unset XDG_RUNTIME_DIR
+  fi
+
   # Run pyIsoPEP q2pep
-  podman run -it --rm \
-    -v "$pep_dir":/data \
+  podman run --rm \
+    -v "$host_pep_dir":/data \
     ghcr.io/statisticalbiotechnology/pyisotonicpep:main \
     q2pep \
       --cat-file "/data/$(basename "$context_in")" \
