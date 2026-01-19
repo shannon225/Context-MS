@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 cd "$repo_root"
 
-indir="2_linearcombo"
+indir="results/2_linearcombo"
 python_script="${repo_root}/python/bh_fdr.py"
 
 column_name="pvalue"   # change this if your p-value column has a different name

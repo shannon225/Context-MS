@@ -7,9 +7,9 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 cd "$repo_root"
 
 # Input: label0 files from apply_weights
-label0_dir="2_linearcombo"
+label0_dir="results/2_linearcombo"
 # Output: pyIsoPEP results
-pep_dir="3_pep"
+pep_dir="results/3_pep"
 mkdir -p "$pep_dir"
 
 # Find all scored target label0 tables
@@ -35,8 +35,8 @@ for f in "${label0_files[@]}"; do
     seed="$seed_token"
   fi
 
-  context_in="${pep_dir}/context_pep_seed${seed}.tsv"
-  context_out="${pep_dir}/context_pep_seed${seed}_ipspline.txt"
+  context_in="${pep_dir}/${bn}_context_pep_seed${seed}.tsv"
+  context_out="${pep_dir}/${bn}_context_pep_seed${seed}_ipspline.txt"
 
   echo "🔹 Preparing seed ${seed}:"
   echo "   label0: $f"
@@ -69,4 +69,28 @@ for f in "${label0_files[@]}"; do
       --output "/data/$(basename "$context_out")"
 done
 
-echo "✅ pyIsoPEP q2pep completed for all seeds → ${pep_dir}/context_pep_seed*_ipspline.txt"
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s nullglob
+
+script_dir="$(cd -- "$(dirname "$0")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+cd "$repo_root"
+
+indir="results/3_pep"
+plot_script="${script_dir}/plot_pyispep_vs_score.py"
+
+# Collect all ipspline outputs (with basename + seed)
+files=( "${indir}"/*_context_pep_seed*_ipspline.txt )
+
+if ((${#files[@]} == 0)); then
+    echo "⚠️  No *_context_pep_seed*_ipspline.txt files found in ${indir}/"
+    exit 0
+fi
+
+for file in "${files[@]}"; do
+    echo "🔹 Plotting $file ..."
+    python3 "$plot_script" "$file"
+done
+
+echo "✅ All seed plots completed from ${indir}/."

@@ -14,7 +14,7 @@ if [[ ! -x "$percolator_bin" ]]; then
 fi
 
 indir="${repo_root}/features"
-outdir="${repo_root}/1_percolator"
+outdir="${repo_root}/results/1_percolator"
 mkdir -p "$outdir"
 
 inputs=( "$indir"/*_features_nontarget*.tsv )
@@ -27,7 +27,7 @@ fi
 for infile in "${inputs[@]}"; do
   base="$(basename "$infile" .tsv)"
 
-  for seed in {1..5}; do
+  for seed in {1..2}; do
     out_weights="${outdir}/${base}_seed${seed}_weights.txt"
     console="${outdir}/${base}_seed${seed}_console.txt"
 

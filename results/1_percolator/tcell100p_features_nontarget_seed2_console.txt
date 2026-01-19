@@ -3,8 +3,8 @@ Copyright (c) 2006-9 University of Washington. All rights reserved.
 Written by Lukas Käll (lukall@u.washington.edu) in the
 Department of Genome Sciences at the University of Washington.
 Issued command:
-/home/ariana/git/context/Context/percolator/build/src/percolator --seed 2 --weights /home/ariana/git/context/Context/1_percolator/tcell100p_features_nontarget_seed2_weights.txt --protein-report-duplicates --post-processing-tdc --override /home/ariana/git/context/Context/features/tcell100p_features_nontarget.tsv
-Started Tue Dec  9 10:54:58 2025
+/home/ariana/git/context/Context/percolator/build/src/percolator --seed 2 --weights /home/ariana/git/context/Context/results/1_percolator/tcell100p_features_nontarget_seed2_weights.txt --protein-report-duplicates --post-processing-tdc --override /home/ariana/git/context/Context/features/tcell100p_features_nontarget.tsv
+Started Tue Dec  9 14:05:58 2025
 Hyperparameters: selectionFdr=0.01, Cpos=0, Cneg=0, maxNiter=10
 Finding protein decoy prefix for /home/ariana/git/context/Context/features/tcell100p_features_nontarget.tsv
 Using protein decoy prefix "DECOY_"
@@ -20,7 +20,7 @@ Split 3:	Selected feature 8 as initial direction. Could separate 794 training se
 Selecting Cpos by cross-validation.
 Selecting Cneg by cross-validation.
 Found 564 test set positives with q<0.01 in initial direction
-Reading in data and feature calculation took 11.2340 cpu seconds or 5 seconds wall clock time.
+Reading in data and feature calculation took 10.5927 cpu seconds or 4 seconds wall clock time.
 ---Training with Cpos selected by cross validation, Cneg selected by cross validation, initial_fdr=0.01, fdr=0.01
 Iteration 1:	Estimated 2080 PSMs with q<0.01
 Iteration 2:	Estimated 2217 PSMs with q<0.01
@@ -67,7 +67,7 @@ Calculating q values.
 Final list yields 1450 target peptides with q<0.01.
 Calculating posterior error probabilities (PEPs).
 Performing isotonic regression using I-Splines
-Processing took 52.7809 cpu seconds or 19 seconds wall clock time.
+Processing took 49.2701 cpu seconds or 17 seconds wall clock time.
 PSMId	score	q-value	posterior_error_prob	peptide	proteinIds
 2023_05_31_mouse_tcell_100FC+PRTC_100fmol_100ng_60k_PRM_50cm_wtrap_01.mzml:4819.1826:HTGPGILSMANAGPNTNGSQFFIC[+57.0214635]TAK+3	1.09345	0.0037843	0.00405293	-.HTGPGILSMANAGPNTNGSQFFIC[+57.0214635]TAK.-	sp|P17742|PPIA_MOUSE
 2023_05_31_mouse_tcell_100FC+PRTC_100fmol_100ng_60k_PRM_50cm_wtrap_01.mzml:2485.6235:MVRPNQDGTLIASC[+57.0214635]SNDQTVR+3	0.980166	0.0037843	0.00405293	-.MVRPNQDGTLIASC[+57.0214635]SNDQTVR.-	sp|P63005|LIS1_MOUSE

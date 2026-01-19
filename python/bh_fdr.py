@@ -2,11 +2,14 @@
 """
 bh_fdr.py
 
-Apply Benjamini–Hochberg FDR and monotone q-values to a column of p-values
-in all *_label0.tsv files in a given directory.
+1) Compute empirical two-sided p-values from a score column, using
+   Label == 0 as the null distribution.
+2) Apply Benjamini–Hochberg FDR and monotone q-values to the resulting
+   p-values for the target rows (Label == 1).
+3) Write pvalue, fdr, and qvalue columns back into each *_label0.tsv file.
 
 Usage:
-    python3 bh_fdr.py --input-dir /path/to/2_linearcombo --column score
+    python3 bh_fdr.py --input-dir /path/to/2_linearcombo --column score --label-col Label
 """
 
 import argparse
@@ -83,25 +86,95 @@ def bh_fdr_from_pvalues(pvals: np.ndarray):
     return fdr, qvalues
 
 
-def process_file(path: str, column: str = "score"):
+def empirical_two_sided_p(scores: np.ndarray, null_scores: np.ndarray) -> np.ndarray:
     """
-    Read a TSV, compute BH FDR/q-values on the given column,
-    and write back in place.
+    Empirical two-sided p-values using the null distribution defined by null_scores.
+
+    For each score s:
+        p = 2 * min( P_null(S >= s), P_null(S <= s) )
+
+    where probabilities are estimated empirically from null_scores.
+    """
+    scores = np.asarray(scores, dtype=float)
+    null_scores = np.asarray(null_scores, dtype=float)
+
+    if null_scores.size == 0:
+        raise ValueError("Null distribution is empty (no rows with label == 0).")
+
+    n_null = null_scores.size
+    null_sorted = np.sort(null_scores)
+
+    # counts of null <= s
+    le_counts = np.searchsorted(null_sorted, scores, side="right")
+    # counts of null >= s
+    ge_counts = n_null - np.searchsorted(null_sorted, scores, side="left")
+
+    le_prop = le_counts / n_null
+    ge_prop = ge_counts / n_null
+
+    pvals = 2.0 * np.minimum(le_prop, ge_prop)
+    pvals = np.clip(pvals, DEFAULT_EPSILON, 1.0)
+    return pvals
+
+
+def process_file(path: str, score_col: str = "score", label_col: str = "Label"):
+    """
+    Read a TSV, compute empirical p-values and BH FDR/q-values, and write back in place.
+
+    - Null distribution: rows with label_col == 0.
+    - P-values: empirical two-sided, computed for target rows (label_col == 1).
+    - BH FDR/q-values: applied to target p-values only.
+    - Decoys (label_col == 0): pvalue, fdr, qvalue set to 1.0.
     """
     print(f"  → Processing {os.path.basename(path)}")
     df = pd.read_csv(path, sep="\t")
 
-    if column not in df.columns:
+    # Basic column checks
+    missing = [c for c in (score_col, label_col) if c not in df.columns]
+    if missing:
         raise ValueError(
-            f"Column '{column}' not found in {path}. "
+            f"Missing columns {missing} in {path}. "
             f"Available columns: {list(df.columns)}"
         )
 
-    pvals = df[column].values
-    fdr, qvals = bh_fdr_from_pvalues(pvals)
+    scores = df[score_col].values
+    labels = df[label_col].values
 
-    df["fdr"] = fdr
-    df["qvalue"] = qvals
+    mask_decoy = labels == 0
+    mask_target = labels == 1
+
+    null_scores = scores[mask_decoy]
+    target_scores = scores[mask_target]
+
+    if target_scores.size == 0:
+        print("    ⚠️ No target (label == 1) rows found; skipping BH FDR for this file.")
+        # Still write out pvalue/fdr/qvalue=1.0 so downstream doesn't break
+        df["pvalue"] = 1.0
+        df["fdr"] = 1.0
+        df["qvalue"] = 1.0
+        df.to_csv(path, sep="\t", index=False)
+        return
+
+    # 1) Empirical two-sided p-values for target scores
+    pvals_target = empirical_two_sided_p(target_scores, null_scores)
+
+    # Initialize full-length arrays with 1.0 for decoys
+    pvals_full = np.ones_like(scores, dtype=float)
+    fdr_full = np.ones_like(scores, dtype=float)
+    qvals_full = np.ones_like(scores, dtype=float)
+
+    # 2) BH FDR/q-values on target p-values only
+    fdr_target, qvals_target = bh_fdr_from_pvalues(pvals_target)
+
+    # Map target-only results back into full arrays
+    pvals_full[mask_target] = pvals_target
+    fdr_full[mask_target] = fdr_target
+    qvals_full[mask_target] = qvals_target
+
+    # Add columns to the DataFrame
+    df["pvalue"] = pvals_full
+    df["fdr"] = fdr_full
+    df["qvalue"] = qvals_full
 
     # Overwrite in-place (you can change this to write a new file if you prefer)
     df.to_csv(path, sep="\t", index=False)
@@ -109,7 +182,10 @@ def process_file(path: str, column: str = "score"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Apply BH FDR + q-values to *_label0.tsv files in a directory."
+        description=(
+            "Compute empirical p-values from score/label, then apply BH FDR/q-values "
+            "to *_label0.tsv files in a directory."
+        )
     )
     parser.add_argument(
         "--input-dir",
@@ -121,7 +197,13 @@ def main():
         "--column",
         "-c",
         default="score",
-        help="Name of the column to use (default: 'score')",
+        help="Name of the score column to use (default: 'score')",
+    )
+    parser.add_argument(
+        "--label-col",
+        "-l",
+        default="Label",
+        help="Name of the label column (default: 'Label', with 0 = null, 1 = target)",
     )
     args = parser.parse_args()
 
@@ -132,10 +214,10 @@ def main():
         raise SystemExit(f"No files matching *_label0.tsv in {args.input_dir}")
 
     print(f"Found {len(files)} files in {args.input_dir} matching *_label0.tsv")
-    print(f"Using column '{args.column}' for p-values")
+    print(f"Using score column '{args.column}' and label column '{args.label_col}'")
 
     for path in files:
-        process_file(path)
+        process_file(path, score_col=args.column, label_col=args.label_col)
 
 
 if __name__ == "__main__":

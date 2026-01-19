@@ -6,8 +6,8 @@ script_dir="$(cd -- "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 
 features_dir="${repo_root}/features"
-weights_dir="${repo_root}/1_percolator"
-outdir="${repo_root}/2_linearcombo"
+weights_dir="${repo_root}/results/1_percolator"
+outdir="${repo_root}/results/2_linearcombo"
 mkdir -p "$outdir"
 
 python_script="${repo_root}/python/apply_weights_to_features.py"

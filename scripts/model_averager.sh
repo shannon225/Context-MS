@@ -5,7 +5,7 @@ shopt -s nullglob
 script_dir="$(cd -- "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 
-indir="${repo_root}/1_percolator"
+indir="${repo_root}/results/1_percolator"
 
 # Loop over each weights file for each seed
 for file in "$indir"/*features_nontarget_seed*_weights.txt; do

@@ -23,7 +23,7 @@ Q2PEP="${SCRIPT_DIR}/run_q2pep.sh"                      # in: 2_linearcombo/ -> 
 PLOT="${SCRIPT_DIR}/run_plot_pyispep.sh"                # in: 3_pep/
 
 # Make sure output dirs exist (most scripts also mkdir as needed)
-mkdir -p "${SCRIPT_DIR}/1_percolator" "${SCRIPT_DIR}/2_linearcombo" "${SCRIPT_DIR}/3_pep"
+# mkdir -p "${SCRIPT_DIR}/1_percolator" "${SCRIPT_DIR}/2_linearcombo" "${SCRIPT_DIR}/3_pep"
 
 # Ensure executability
 chmod +x "$PERCO" "$AVER" "$APPLY" "$FDR" "$Q2PEP" "$PLOT" || true
@@ -53,7 +53,7 @@ echo "────────────────────────�
 
 echo
 echo "────────────────────────────────────────────────────────"
-echo "🟥 [5/6] Run q2pep (pyIsoPEP d2pep) → 3_pep/"
+echo "🟥 [5/6] Run q2pep (pyIsoPEP q2pep) → 3_pep/"
 echo "────────────────────────────────────────────────────────"
 "$Q2PEP"
 
@@ -64,4 +64,7 @@ echo "────────────────────────�
 
 echo
 echo "✅ All done. Outputs:"
-echo "   • 1_p_
+echo "   • 1_percolator/   (Percolator weights, averaged)"
+echo "   • 2_linearcombo/  (scored target label0 + BH FDR/q)"
+echo "   • 3_pep/          (pyIsoPEP context_pep_seed*.tsv and *_ipspline.txt + plots)"
+echo "────────────────────────────────────────────────────────"
