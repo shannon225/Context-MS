@@ -5,7 +5,9 @@ shopt -s nullglob
 script_dir="$(cd -- "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 
-percolator_bin="${repo_root}/percolator/build/src/percolator"
+percolator_bin="/home/ariana/tools/percolator/build-3.07.01/src/percolator"
+# percolator_bin="${repo_root}/percolator/build/src/percolator"
+
 
 if [[ ! -x "$percolator_bin" ]]; then
   echo "Error: percolator binary not found at: $percolator_bin" >&2
@@ -27,7 +29,7 @@ fi
 for infile in "${inputs[@]}"; do
   base="$(basename "$infile" .tsv)"
 
-  for seed in {1..2}; do
+  for seed in {1..100}; do
     out_weights="${outdir}/${base}_seed${seed}_weights.txt"
     console="${outdir}/${base}_seed${seed}_console.txt"
 

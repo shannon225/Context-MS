@@ -1,0 +1,12 @@
+# This file contains the weights from each cross validation bin from percolator training
+# First line is the feature names, followed by normalized weights, and the raw weights of bin 1
+# This is repeated for the other bins
+primary	xCorrLib	xCorrModel	LogDotProduct	logWeightedDotProduct	sumOfSquaredErrors	weightedSumOfSquaredErrors	numberOfMatchingPeaks	numberOfMatchingPeaksAboveThreshold	averageAbsFragmentDeltaMass	averageFragmentDeltaMasses	isotopeDotProduct	averageAbsParentDeltaMass	averageParentDeltaMass	eValue	numMissedCleavage	pepLength	charge1	charge2	charge3	charge4	precursorMz	precursorMass	RTinMin	m0
+-0.106	0.0149	0.0277	-0.1533	0.2431	0.1848	-0.0554	0.1402	0.0335	-0.1976	0.1168	0.0197	0.0333	-0.0404	0.0397	-0.0244	0.0432	0.0000	-0.0449	0.0449	0.0000	0.0683	-0.0777	0.0473	-1.0337
+-0.0615	0.1100	0.1247	-0.0969	0.1712	0.5963	-0.2365	0.1459	0.0541	-0.1508	0.0970	0.0917	0.0171	-0.0101	0.0719	-0.0539	0.0105	0.0000	-0.0923	0.0923	0.0000	0.0005	-0.0002	0.0023	-1.5135
+primary	xCorrLib	xCorrModel	LogDotProduct	logWeightedDotProduct	sumOfSquaredErrors	weightedSumOfSquaredErrors	numberOfMatchingPeaks	numberOfMatchingPeaksAboveThreshold	averageAbsFragmentDeltaMass	averageFragmentDeltaMasses	isotopeDotProduct	averageAbsParentDeltaMass	averageParentDeltaMass	eValue	numMissedCleavage	pepLength	charge1	charge2	charge3	charge4	precursorMz	precursorMass	RTinMin	m0
+0.192	0.1241	-0.1300	-0.0429	0.1199	0.0941	-0.1162	0.0910	-0.0061	-0.0920	-0.0460	0.0377	-0.0064	-0.0117	0.0229	-0.0562	0.2466	0.0000	-0.0606	0.0606	0.0000	0.1924	-0.2395	-0.0067	-1.3319
+0.1111	0.9178	-0.5850	-0.0271	0.0844	0.3036	-0.4960	0.0947	-0.0098	-0.0702	-0.0382	0.1757	-0.0033	-0.0029	0.0414	-0.1243	0.0601	0.0000	-0.1245	0.1245	0.0000	0.0015	-0.0006	-0.0003	-2.6130
+primary	xCorrLib	xCorrModel	LogDotProduct	logWeightedDotProduct	sumOfSquaredErrors	weightedSumOfSquaredErrors	numberOfMatchingPeaks	numberOfMatchingPeaksAboveThreshold	averageAbsFragmentDeltaMass	averageFragmentDeltaMasses	isotopeDotProduct	averageAbsParentDeltaMass	averageParentDeltaMass	eValue	numMissedCleavage	pepLength	charge1	charge2	charge3	charge4	precursorMz	precursorMass	RTinMin	m0
+0.135	0.0084	-0.0186	-0.0191	-0.0314	-0.1568	-0.0605	-0.0550	-0.0003	-0.0064	-0.0263	0.0206	-0.0066	0.0283	-0.0024	-0.0013	0.0703	0.0000	0.0055	-0.0055	0.0000	0.0243	-0.0746	-0.0009	-1.0729
+0.0782	0.0623	-0.0839	-0.0121	-0.0221	-0.5057	-0.2584	-0.0573	-0.0004	-0.0049	-0.0219	0.0962	-0.0034	0.0071	-0.0044	-0.0029	0.0171	0.0000	0.0113	-0.0113	0.0000	0.0002	-0.0002	-0.0000	-0.9345

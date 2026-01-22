@@ -44,7 +44,7 @@ def deduplicate(df: pd.DataFrame) -> pd.DataFrame:
 def main():
     p = argparse.ArgumentParser(description="Deduplicate feature files by highest primary per id.")
     p.add_argument("--indir", type=Path, default=Path("."), help="Input directory (default: current)")
-    p.add_argument("--pattern", type=str, default="tcell100p_features*.tsv", help="Glob pattern for input files")
+    p.add_argument("--pattern", type=str, default="*.tsv", help="Glob pattern for input files")
     p.add_argument("--outdir", type=Path, default=None, help="Output directory (default: <indir>/dedup)")
     args = p.parse_args()
 

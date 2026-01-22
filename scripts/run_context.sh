@@ -18,53 +18,40 @@ cd "$SCRIPT_DIR"
 PERCO="${SCRIPT_DIR}/run_percolator_on_background.sh"   # uses: feature/ -> 1_percolator/
 AVER="${SCRIPT_DIR}/model_averager.sh"                  # in/out: 1_percolator/
 APPLY="${SCRIPT_DIR}/run_apply_weights.sh"              # in: feature/,1_percolator/ -> out: 2_linearcombo/
-FDR="${SCRIPT_DIR}/run_fdr.sh"                          # in/out: 2_linearcombo/  (calls bh_fdr.py)
-Q2PEP="${SCRIPT_DIR}/run_q2pep.sh"                      # in: 2_linearcombo/ -> out: 3_pep/
-PLOT="${SCRIPT_DIR}/run_plot_pyispep.sh"                # in: 3_pep/
+D2PEP="${SCRIPT_DIR}/run_d2pep.sh"                      # in: 2_linearcombo/ -> out: 3_pep/
 
 # Make sure output dirs exist (most scripts also mkdir as needed)
 # mkdir -p "${SCRIPT_DIR}/1_percolator" "${SCRIPT_DIR}/2_linearcombo" "${SCRIPT_DIR}/3_pep"
 
 # Ensure executability
-chmod +x "$PERCO" "$AVER" "$APPLY" "$FDR" "$Q2PEP" "$PLOT" || true
+chmod +x "$PERCO" "$AVER" "$APPLY" "$D2PEP" || true
 
 echo "────────────────────────────────────────────────────────"
-echo "🟦 [1/6] Percolator on background → 1_percolator/"
+echo "🟦 [1/4] Percolator on background → 1_percolator/"
 echo "────────────────────────────────────────────────────────"
 "$PERCO"
 
 echo
 echo "────────────────────────────────────────────────────────"
-echo "🟨 [2/6] Model averager (within-file lines 6/9/12) → 1_percolator/"
+echo "🟨 [2/4] Model averager (within-file lines 6/9/12) → 1_percolator/"
 echo "────────────────────────────────────────────────────────"
 "$AVER"
 
 echo
 echo "────────────────────────────────────────────────────────"
-echo "🟧 [3/6] Apply weights to target features → 2_linearcombo/"
+echo "🟧 [3/4] Apply weights to target features → 2_linearcombo/"
 echo "────────────────────────────────────────────────────────"
 "$APPLY"
-
+echo
 echo
 echo "────────────────────────────────────────────────────────"
-echo "🟫 [4/6] BH FDR + q-values (run_fdr.sh) → 2_linearcombo/"
+echo "🟥 [4/4] Calculate PEP (pyIsoPEP d2pep) → 3_pep/"
 echo "────────────────────────────────────────────────────────"
-"$FDR"
-
-echo
-echo "────────────────────────────────────────────────────────"
-echo "🟥 [5/6] Run q2pep (pyIsoPEP q2pep) → 3_pep/"
-echo "────────────────────────────────────────────────────────"
-"$Q2PEP"
-
-echo
-echo "🟪 [6/6] Plot pyIsoPEP outputs → 3_pep/"
-echo "────────────────────────────────────────────────────────"
-"$PLOT"
+"$D2PEP"
 
 echo
 echo "✅ All done. Outputs:"
 echo "   • 1_percolator/   (Percolator weights, averaged)"
-echo "   • 2_linearcombo/  (scored target label0 + BH FDR/q)"
-echo "   • 3_pep/          (pyIsoPEP context_pep_seed*.tsv and *_ipspline.txt + plots)"
+echo "   • 2_linearcombo/  (scored target)"
+echo "   • 3_pep/          (pyIsoPEP + plots)"
 echo "────────────────────────────────────────────────────────"
