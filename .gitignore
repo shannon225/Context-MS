@@ -7,3 +7,6 @@ venv/
 .ipynb_checkpoints/
 .DS_Store
 *:Zone.Identifier
+context/__pycache__/
+features/
+results/
