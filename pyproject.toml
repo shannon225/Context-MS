@@ -3,8 +3,8 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "context"
-version = "0.1.0"
+name = "context-ms"
+version = "0.1.1"
 description = "Context-aware confidence estimation for targeted proteomics"
 readme = "README.md"
 requires-python = ">=3.9"

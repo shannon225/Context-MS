@@ -11,7 +11,7 @@ FDR + q-values from TDC scores and fits an isotonic spline q -> PEP,
 separately at the PSM and peptide levels.
 
 `Context` is distributed as both a [**container image**](https://github.com/shannon225/Context/pkgs/container/context)
-(Podman-, Docker- and Apptainer-compatible) and a [**Python package**](https://pypi.org/project/context/)
+(Podman-, Docker- and Apptainer-compatible) and a [**Python package**](https://pypi.org/project/context-ms)
 exposing the same CLI.
 
 ---
@@ -21,13 +21,14 @@ exposing the same CLI.
 ### PyPI
 
 ```bash
-pip install context
+pip install context-ms
 ```
 
 `Context` is a Python package with one external dependency: Percolator. For
-PyPI installations, either a local `percolator` executable on `PATH` or Podman
-must be available. `Context` uses the local executable when present; otherwise,
-it runs `ghcr.io/percolator/percolator:master` through Podman.
+PyPI installations, either a local `percolator` executable on `PATH` or a
+container runtime (Podman or Docker) must be available. `Context` uses the
+local executable when present; otherwise, it runs
+`ghcr.io/percolator/percolator:master` through Podman or Docker (set with `--container-cmd`, default `podman`).
 
 ### Container image
 ```bash
@@ -90,19 +91,19 @@ context run \
 # Podman
 podman run --rm -v "$PWD:/work" -w /work \
   ghcr.io/shannon225/context:main \
-  run --nontarget nontarget.tsv --target target.tsv \
+  run --nontarget example/nontarget.tsv --target example/target.tsv \
       --prefix run01 --outdir results
 
 # Apptainer
 apptainer run --bind "$PWD:/work" --pwd /work context.sif \
-  run --nontarget nontarget.tsv --target target.tsv \
+  run --nontarget example/nontarget.tsv --target example/target.tsv \
       --prefix run01 --outdir results
 ```
 
 ---
 
 ## Links
-* **PyPI package:** <https://pypi.org/project/context>
+* **PyPI package:** <https://pypi.org/project/context-ms>
 * **Container image:** <https://github.com/shannon225/Context/pkgs/container/context>
 * **GitHub repository:** <https://github.com/shannon225/Context>
 * **Percolator:** <http://percolator.ms>
