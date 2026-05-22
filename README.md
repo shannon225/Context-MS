@@ -74,15 +74,17 @@ context run -h
 ---
 
 ## Examples
-
+```bash
+cd example
+```
 ### PyPI
 
 ```bash
 context run \
-  --nontarget example/nontarget.tsv \
-  --target    example/target.tsv \
+  --nontarget nontarget.tsv \
+  --target    target.tsv \
   --prefix    run01 \
-  --outdir    results
+  --outdir    results_run01
 ```
 
 ### Container image
@@ -91,13 +93,13 @@ context run \
 # Podman
 podman run --rm -v "$PWD:/work" -w /work \
   ghcr.io/shannon225/context:main \
-  run --nontarget example/nontarget.tsv --target example/target.tsv \
-      --prefix run01 --outdir results
+  run --nontarget nontarget.tsv --target target.tsv \
+      --prefix run01 --outdir results_run01
 
 # Apptainer
 apptainer run --bind "$PWD:/work" --pwd /work context.sif \
-  run --nontarget example/nontarget.tsv --target example/target.tsv \
-      --prefix run01 --outdir results
+  run --nontarget nontarget.tsv --target target.tsv \
+      --prefix run01 --outdir results_run01
 ```
 
 ---
