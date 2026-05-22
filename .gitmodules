@@ -1,6 +1,0 @@
-[submodule "third_party/percolator"]
-	path = third_party/percolator
-	url = https://github.com/percolator/percolator.git
-[submodule "percolator"]
-	path = percolator
-	url = https://github.com/percolator/percolator.git
