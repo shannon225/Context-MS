@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "context-ms"
+version = "0.1.2"
+description = "Context-aware confidence estimation for targeted proteomics"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Ariana E. Shannon" },
+    { name = "Yuqi Zheng" },
+    { name = "Brian C. Searle" },
+    { name = "Lukas Käll" },
+]
+maintainers = [
+    { name = "Yuqi Zheng", email = "yuqi.zheng@scilifelab.se" },
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "pyIsoPEP",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+context = "context.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["context"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/context",
+    "/README.md",
+    "/pyproject.toml",
+]
