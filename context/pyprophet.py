@@ -125,7 +125,13 @@ def _invoke_pyprophet(pp_input, *, seed, classifier, ss_num_iter,
             cmd, stdout=fh, stderr=subprocess.STDOUT, env=env, cwd=cwd,
         ).returncode
     if rc != 0:
-        sys.exit(f"pyprophet failed (rc={rc}). See {console}")
+        persisted = Path(tempfile.gettempdir()) / f"{pp_input.stem}.pyprophet.log"
+        shutil.copy(console, persisted)
+        log_tail = console.read_text(errors="replace")
+        sys.exit(
+            f"pyprophet failed (rc={rc}). Log copied to {persisted}\n"
+            f"--- pyprophet output ---\n{log_tail}"
+        )
 
 
 def _read_pyprophet_weights(weights_csv, feature_cols):
