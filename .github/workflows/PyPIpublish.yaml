@@ -2,12 +2,6 @@ name: Publish Context Python Package
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, containerize ]
-    paths:
-      - '.github/workflows/PyPIpublish.yaml'
-      - 'pyproject.toml'
-      - 'context/**'
   release:
     types: [published]
 

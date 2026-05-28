@@ -7,7 +7,7 @@ from . import pipeline
 def _add_input_args(p):
     g = p.add_argument_group("input")
     g.add_argument("--nontarget", type=Path, required=True,
-                   help="Nontarget (background) feature TSV used to train Percolator.")
+                   help="Nontarget (background) feature TSV used to train Percolator or pyProphet.")
     g.add_argument("--target", type=Path, required=True,
                    help="Target panel feature TSV to score and calibrate.")
     g.add_argument("--prefix", required=True,
@@ -16,9 +16,29 @@ def _add_input_args(p):
 
 def _add_runtime_args(p):
     g = p.add_argument_group("runtime")
-    g.add_argument("--outdir", type=Path, default=Path("results"))
+    g.add_argument("--outdir", type=Path, default=Path("results"),
+                   help="Output directory for results files.")
+    g.add_argument("--engine", choices=pipeline.ENGINES, default="percolator",
+                   help="percolator or pyprophet; engine used to train the model and score the target panel.")
     g.add_argument("--container-cmd", default="podman",
-                   help="podman or docker; container runtime used as a fallback when percolator or pyIsoPEP isn't available locally.")
+                   help="podman or docker; container runtime used as a fallback when "
+                        "the engine or pyIsoPEP isn't available locally.")
+    g.add_argument("--psm-out", default=None,
+                   help="File name (or path) for the PSM-level target output. "
+                        "If relative, written inside --outdir. "
+                        "Default: <prefix>.psm.target.txt")
+    g.add_argument("--peptide-out", default=None,
+                   help="File name (or path) for the peptide-level target output. "
+                        "If relative, written inside --outdir. "
+                        "Default: <prefix>.peptide.target.txt")
+    g.add_argument("--rescored-out", default=None,
+                   help="File name (or path) for the rescored-features TSV (targets+decoys). "
+                        "If relative, written inside --outdir. "
+                        "Default: <prefix>.rescored_features.tsv")
+    g.add_argument("--weights-out", default=None,
+                   help="File name (or path) for the trained weights file. "
+                        "If relative, written inside --outdir/weights. "
+                        "Default: <prefix>.weights.txt")
 
 
 def _resolve_inputs(args):
@@ -34,7 +54,9 @@ def cmd_run(args):
     pipeline.run(
         nt, tg,
         outdir=args.outdir, prefix=prefix, seed=args.seed,
-        container_cmd=args.container_cmd,
+        engine=args.engine, container_cmd=args.container_cmd,
+        psm_out=args.psm_out, peptide_out=args.peptide_out,
+        rescored_out=args.rescored_out, weights_out=args.weights_out,
     )
     return 0
 
@@ -42,7 +64,7 @@ def cmd_run(args):
 def build_parser():
     p = argparse.ArgumentParser(
         prog="context",
-        description="Context-aware confidence estimation for targeted proteomics",
+        description="Context-aware confidence estimation for targeted proteomics.",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 

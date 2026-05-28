@@ -17,7 +17,7 @@ PEP_COL = "posterior_error_prob"
 LABEL_COL = "Label"
 
 
-def parse_weights(path):
+def parse_percolator_weights(path):
     lines = [ln.rstrip("\n") for ln in Path(path).read_text().splitlines()
              if ln.strip() and not ln.lstrip().startswith("#")]
     if len(lines) % 3 != 0:
@@ -37,7 +37,31 @@ def parse_weights(path):
     return feature_names, np.stack(w_raw, axis=0), np.array(b_raw)
 
 
-def boxplot_counts(prefix, counts_df, level, metric, png_path, *, n_targets, n_decoys):
+def parse_pyprophet_weights(path):
+    df = pd.read_csv(path, sep="\t")
+    feat = [str(x) for x in df["feature"].tolist()]
+    w = df["weight"].to_numpy(dtype=float)
+    bias_mask = [name == "__bias__" for name in feat]
+    if any(bias_mask):
+        bias_idx = bias_mask.index(True)
+        b = float(w[bias_idx])
+        feat = [f for f, m in zip(feat, bias_mask) if not m]
+        w = w[[not m for m in bias_mask]]
+    else:
+        b = 0.0
+    return feat, w[np.newaxis, :], np.array([b])
+
+
+def parse_weights(path, engine):
+    if engine == "percolator":
+        return parse_percolator_weights(path)
+    if engine == "pyprophet":
+        return parse_pyprophet_weights(path)
+    raise ValueError(f"unknown engine {engine!r}")
+
+
+def boxplot_counts(prefix, counts_df, level, metric, png_path, *,
+                   n_targets, n_decoys, engine):
     sub = counts_df[(counts_df["level"] == level) & (counts_df["metric"] == metric)]
     thresholds = sorted(sub["threshold"].unique())
     data = [sub.loc[sub["threshold"] == t, "n_accepted"].to_numpy()
@@ -47,7 +71,8 @@ def boxplot_counts(prefix, counts_df, level, metric, png_path, *, n_targets, n_d
     ax.boxplot(data, tick_labels=[f"{label}<{t}" for t in thresholds])
     ax.set_ylabel(f"# {level} accepted")
     ax.set_ylim(-2, 150)
-    ax.set_title(f"{prefix} ({n_targets} targets, {n_decoys} decoys)", fontsize=11)
+    ax.set_title(f"{prefix} [{engine}] ({n_targets} targets, {n_decoys} decoys)",
+                 fontsize=11)
     ax.grid(alpha=0.3)
     fig.savefig(png_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -62,20 +87,26 @@ def _seed_files(directory, pattern):
     return out
 
 
-def aggregate(target_path, *, outdir, prefix, q_thresholds, pep_thresholds):
+def aggregate(target_path, *, outdir, prefix, engine,
+              q_thresholds, pep_thresholds):
     outdir = Path(outdir)
     weights_dir = outdir / "weights"
     figs_dir = outdir / "figs"
     figs_dir.mkdir(parents=True, exist_ok=True)
 
-    weights_files = _seed_files(weights_dir, f"{prefix}.seed*.weights.txt")
+    weights_files = _seed_files(
+        weights_dir, f"{prefix}.seed*.weights.txt",
+    )
     if not weights_files:
-        sys.exit(f"No weights files matching {prefix}.seed*.weights.txt under {weights_dir}")
+        sys.exit(
+            f"No weights files matching "
+            f"{prefix}.seed*.weights.txt under {weights_dir}"
+        )
 
     feature_names = None
     w_list, b_list = [], []
     for _, wpath in weights_files:
-        feats, w_raw, b_raw = parse_weights(wpath)
+        feats, w_raw, b_raw = parse_weights(wpath, engine)
         if feature_names is None:
             feature_names = feats
         w_list.append(w_raw)
@@ -87,7 +118,7 @@ def aggregate(target_path, *, outdir, prefix, q_thresholds, pep_thresholds):
     pd.DataFrame({"feature": feature_names + ["__bias__"],
                   "weight": np.concatenate([w_mean, [b_mean]])}
                 ).to_csv(avg_w_path, sep="\t", index=False)
-    print(f"[write] {avg_w_path.name} (over {len(weights_files)} seeds)")
+    print(f"[write] {avg_w_path} (over {len(weights_files)} seeds)")
 
     target_df = pd.read_csv(target_path, sep="\t")
     labels = target_df[LABEL_COL].astype(int).to_numpy()
@@ -112,14 +143,14 @@ def aggregate(target_path, *, outdir, prefix, q_thresholds, pep_thresholds):
     counts = pd.DataFrame(rows)
     counts_out = outdir / f"{prefix}.counts.tsv"
     counts.to_csv(counts_out, sep="\t", index=False)
-    print(f"[write] {counts_out.name}")
+    print(f"[write] {counts_out}")
     for level in ("PSMs", "peptides"):
         for metric, _, _ in metric_specs:
             metric_label = _METRIC_LABELS[metric]
             boxplot_counts(
                 prefix, counts, level, metric,
                 figs_dir / f"{prefix}.boxplot.{level}.{metric_label}.png",
-                n_targets=n_targets, n_decoys=n_decoys,
+                n_targets=n_targets, n_decoys=n_decoys, engine=engine,
             )
 
 
@@ -127,13 +158,18 @@ def build_parser():
     p = argparse.ArgumentParser(
         prog="aggregate.py",
         description="Aggregate per-seed context outputs into averaged weights, "
-                    "counts, and boxplots.",
+                    "counts, and boxplots, for one engine.",
     )
     p.add_argument("--target", type=Path, required=True,
                    help="Target panel feature TSV (used to count targets/decoys).")
     p.add_argument("--prefix", required=True,
                    help="Output prefix shared with the per-seed runs.")
-    p.add_argument("--outdir", type=Path, default=Path("results"))
+    p.add_argument("--outdir", type=Path, required=True,
+                   help="Directory containing the per-seed results (typically "
+                        "results/<engine>).")
+    p.add_argument("--engine", choices=("percolator", "pyprophet"),
+                   default="percolator",
+                   help="Selects the weight-file format parser.")
     p.add_argument("--q-thresholds", type=float, nargs="+", default=[0.01, 0.05],
                    help="q-value cutoffs for the per-seed acceptance boxplots.")
     p.add_argument("--pep-thresholds", type=float, nargs="+", default=[0.01, 0.05],
@@ -146,6 +182,7 @@ def main(argv=None):
     if not args.target.is_file():
         sys.exit(f"Not found: {args.target}")
     aggregate(args.target, outdir=args.outdir, prefix=args.prefix,
+              engine=args.engine,
               q_thresholds=args.q_thresholds, pep_thresholds=args.pep_thresholds)
     return 0
 

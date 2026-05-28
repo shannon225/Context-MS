@@ -7,10 +7,13 @@ Context identifies the non-feature columns by position, following the Percolator
 ScanNr is looked up by name.
 """
 import pandas as pd
+import numpy as np
 
 OUT_SCORE = "score"
 OUT_Q = "q-value"
 OUT_PEP = "posterior_error_prob"
+
+SIGMA_DROP_THRESHOLD = 1e-6
 
 
 def read_features_raw(path, *, multi_protein_join=","):
@@ -79,6 +82,23 @@ def numeric_features(df, feature_cols):
     return df[feature_cols].apply(pd.to_numeric, errors="coerce").fillna(0.0)
 
 
+def detect_feature_cols(header):
+    id_col, label_col = header[0], header[1]
+    peptide_col, proteins_col = header[-2], header[-1]
+    lc = {c.lower(): c for c in header}
+    scan_col = lc.get("scannr") or lc.get("scan")
+    non_feat = {id_col, label_col, peptide_col, proteins_col}
+    if scan_col is not None:
+        non_feat.add(scan_col)
+    return [c for c in header if c not in non_feat]
+
+
+def near_constant_cols(df, feature_cols, *, threshold=SIGMA_DROP_THRESHOLD):
+    num = numeric_features(df, feature_cols)
+    sigma = num.std(ddof=0)
+    return [c for c in feature_cols if sigma[c] < threshold]
+
+
 def psm_to_peptide(df, peptide_col, score_col=OUT_SCORE):
     return (
         df.sort_values(score_col, ascending=False, kind="mergesort")
@@ -102,3 +122,9 @@ def to_final_output(target_df, ff):
         ff.proteins_col: target_df[ff.proteins_col].values,
     })
     return out
+
+
+def write_pruned_tsv(df, drop_cols, out_path):
+    keep = [c for c in df.columns if c not in set(drop_cols)]
+    df[keep].to_csv(out_path, sep="\t", index=False)
+    return out_path

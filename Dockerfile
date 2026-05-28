@@ -11,7 +11,7 @@ RUN apt-get update && \
         python3 python3-pip ca-certificates && \
     rm -rf /var/lib/apt/lists/* && \
     python3 -m pip install --break-system-packages --no-cache-dir \
-        numpy pandas matplotlib pyIsoPEP
+        numpy pandas matplotlib pyIsoPEP pyprophet
 
 COPY context /opt/context-pkg/context
 ENV PYTHONPATH=/opt/context-pkg

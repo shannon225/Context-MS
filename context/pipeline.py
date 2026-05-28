@@ -1,11 +1,17 @@
 from pathlib import Path
+import tempfile
 import numpy as np
 from .io import (
     FeatureFile, OUT_SCORE, check_headers_match, coerce_label,
-    numeric_features, psm_to_peptide, read_features_raw, to_final_output,
+    detect_feature_cols, near_constant_cols, numeric_features,
+    psm_to_peptide, read_features_raw, to_final_output, write_pruned_tsv,
 )
-from .percolator import parse_weights, run_percolator
+from . import percolator
+from . import pyprophet as pp_engine
 from .pyisopep import annotate_q_and_pep
+
+
+ENGINES = ("percolator", "pyprophet")
 
 
 def score_table(df, feature_cols, w, b):
@@ -33,43 +39,117 @@ def score_and_calibrate(ff, w, b, *, container_cmd):
     return rescored, psm_out, pep_out
 
 
-def run(nontarget_path, target_path, *, outdir, prefix, seed,
-            container_cmd):
+def _train_percolator(pruned_nt, weights_out, seed, container_cmd):
+    percolator.run_percolator(
+        pruned_nt, weights_out, seed=seed, container_cmd=container_cmd,
+    )
+    feature_names, w_raw, b_raw = percolator.parse_weights(weights_out)
+    w = w_raw.mean(axis=0)
+    b = float(b_raw.mean())
+    return feature_names, w, b
+
+
+def _train_pyprophet(pruned_nt, weights_out, seed, container_cmd, feature_cols):
+    header = list(pruned_nt_header(pruned_nt))
+    id_col = header[0]
+    label_col = header[1]
+    return pp_engine.train(
+        pruned_nt, weights_out, seed=seed,
+        feature_cols=feature_cols, label_col=label_col, id_col=id_col,
+        container_cmd=container_cmd,
+    )
+
+
+def pruned_nt_header(path):
+    with open(path, encoding="utf-8") as f:
+        return [c.strip() for c in f.readline().rstrip("\n").split("\t")]
+
+
+def _resolve_out(name, *, base, default_name):
+    if name is None:
+        return base / default_name
+    p = Path(name)
+    if p.is_absolute():
+        return p
+    return base / p
+
+
+def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
+        container_cmd, psm_out=None, peptide_out=None,
+        rescored_out=None, weights_out=None):
+    if engine not in ENGINES:
+        raise ValueError(f"unknown engine {engine!r}; choose from {ENGINES}")
+
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     weights_dir = outdir / "weights"
     weights_dir.mkdir(parents=True, exist_ok=True)
 
-    check_headers_match(nontarget_path, target_path)
+    header = check_headers_match(nontarget_path, target_path)
+    feature_cols = detect_feature_cols(header)
 
-    wpath = weights_dir / f"{prefix}.seed{seed}.weights.txt"
-    print(f"[percolator] {prefix} seed={seed}", flush=True)
-    run_percolator(nontarget_path, wpath, seed=seed, container_cmd=container_cmd)
+    nt_df = read_features_raw(nontarget_path)
+    tg_df = read_features_raw(target_path)
+    drop = near_constant_cols(nt_df, feature_cols)
+    if drop:
+        print(f"[prune] dropping {len(drop)} near-constant feature(s): {drop}",
+              flush=True)
+    kept = [c for c in feature_cols if c not in set(drop)]
 
-    feature_names, w_raw, b_raw = parse_weights(wpath)
-    w = w_raw.mean(axis=0)
-    b = float(b_raw.mean())
+    wpath = _resolve_out(
+        weights_out, base=weights_dir,
+        default_name=f"{prefix}.weights.txt",
+    )
+    wpath.parent.mkdir(parents=True, exist_ok=True)
 
-    df = read_features_raw(target_path)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        pruned_nt = write_pruned_tsv(nt_df, drop, tmp / "nontarget.tsv")
+        pruned_tg = write_pruned_tsv(tg_df, drop, tmp / "target.tsv")
+
+        print(f"[{engine}] {prefix} seed={seed}", flush=True)
+        if engine == "percolator":
+            feature_names, w, b = _train_percolator(
+                pruned_nt, wpath, seed, container_cmd,
+            )
+        else:
+            feature_names, w, b = _train_pyprophet(
+                pruned_nt, wpath, seed, container_cmd, kept,
+            )
+
+        df = read_features_raw(pruned_tg)
+
     ff = FeatureFile(df, feature_cols=feature_names)
     coerce_label(ff.df, ff.label_col)
 
-    rescored, psm_out, pep_out = score_and_calibrate(
+    rescored, psm_df, pep_df = score_and_calibrate(
         ff, w, b, container_cmd=container_cmd,
     )
 
-    rescored_path = outdir / f"{prefix}.seed{seed}.rescored_features.tsv"
-    psm_path = outdir / f"{prefix}.seed{seed}.psm.target.txt"
-    pep_path = outdir / f"{prefix}.seed{seed}.peptide.target.txt"
+    rescored_path = _resolve_out(
+        rescored_out, base=outdir,
+        default_name=f"{prefix}.rescored_features.tsv",
+    )
+    psm_path = _resolve_out(
+        psm_out, base=outdir,
+        default_name=f"{prefix}.psm.target.txt",
+    )
+    pep_path = _resolve_out(
+        peptide_out, base=outdir,
+        default_name=f"{prefix}.peptide.target.txt",
+    )
+    for p in (rescored_path, psm_path, pep_path):
+        p.parent.mkdir(parents=True, exist_ok=True)
     rescored.to_csv(rescored_path, sep="\t", index=False)
-    psm_out.to_csv(psm_path, sep="\t", index=False)
-    pep_out.to_csv(pep_path, sep="\t", index=False)
+    psm_df.to_csv(psm_path, sep="\t", index=False)
+    pep_df.to_csv(pep_path, sep="\t", index=False)
 
-    print(f"[write] {rescored_path.name}  ({len(rescored)} rows including decoys)")
-    print(f"[write] {psm_path.name}        ({len(psm_out)} target PSMs)")
-    print(f"[write] {pep_path.name}    ({len(pep_out)} target peptides)")
+    print(f"[write] {rescored_path}  ({len(rescored)} rows including decoys)")
+    print(f"[write] {psm_path}        ({len(psm_df)} target PSMs)")
+    print(f"[write] {pep_path}    ({len(pep_df)} target peptides)")
 
     return {
+        "engine": engine,
         "weights": wpath,
         "rescored": rescored_path,
         "psm": psm_path,

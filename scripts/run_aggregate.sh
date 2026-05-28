@@ -12,13 +12,16 @@ set -euo pipefail
 REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$REPO_ROOT"
 
-PREFIX="${1:?usage: run_aggregate.sh <prefix>}"
-OUTDIR="${OUTDIR:-results}"
+PREFIX="${1:?usage: run_aggregate.sh <prefix> [engine]}"
+ENGINE="${2:-percolator}"
+BASE_OUTDIR="${OUTDIR:-results}"
+ENGINE_OUTDIR="$BASE_OUTDIR/$ENGINE"
 PYTHON="${AGGREGATE_PYTHON:-/proj/proteoforma_nsc/mamba_env/pymc_py12/bin/python3}"
 
-mkdir -p "$OUTDIR/logs"
+mkdir -p "$BASE_OUTDIR/logs"
 
 "$PYTHON" scripts/aggregate.py \
     --target "features/${PREFIX}_features_target.tsv" \
     --prefix "$PREFIX" \
-    --outdir "$OUTDIR"
+    --engine "$ENGINE" \
+    --outdir "$ENGINE_OUTDIR"

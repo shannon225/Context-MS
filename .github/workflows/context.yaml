@@ -7,13 +7,13 @@ permissions:
 on:
   workflow_dispatch:
   push:
-    branches: [ main, containerize ]
+    branches: [ main, containerize, pyprophet ]
     paths:
       - '.github/workflows/context.yaml'
       - 'Dockerfile'
       - 'context/**'
   pull_request:
-    branches: [ main, containerize ]
+    branches: [ main, containerize, pyprophet ]
     paths:
       - 'Dockerfile'
       - 'context/**'

@@ -11,11 +11,13 @@ set -euo pipefail
 REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$REPO_ROOT"
 
-PREFIX="${1:?usage: sbatch --array=1-100 run_reproducibility_hpc.sh <prefix>}"
-OUTDIR="${OUTDIR:-results}"
+PREFIX="${1:?usage: sbatch --array=1-100 run_reproducibility_hpc.sh <prefix> [engine]}"
+ENGINE="${2:-percolator}"
+BASE_OUTDIR="${OUTDIR:-results}"
+ENGINE_OUTDIR="$BASE_OUTDIR/$ENGINE"
 IMAGE="${CONTEXT_SIF:-$REPO_ROOT/context.sif}"
 
-mkdir -p "$OUTDIR/logs"
+mkdir -p "$BASE_OUTDIR/logs"
 
 if [[ ! -f "$IMAGE" ]]; then
     echo "Container image not found at $IMAGE" >&2
@@ -23,10 +25,18 @@ if [[ ! -f "$IMAGE" ]]; then
     exit 1
 fi
 
+SEED="$SLURM_ARRAY_TASK_ID"
+TAG="${PREFIX}.seed${SEED}"
+
 apptainer run --bind "$REPO_ROOT:/work" --pwd /work "$IMAGE" \
     run \
-        --nontarget "features/${PREFIX}_features_nontarget.tsv" \
-        --target    "features/${PREFIX}_features_target.tsv" \
-        --prefix    "$PREFIX" \
-        --outdir    "$OUTDIR" \
-        --seed      "$SLURM_ARRAY_TASK_ID"
+        --nontarget    "features/${PREFIX}_features_nontarget.tsv" \
+        --target       "features/${PREFIX}_features_target.tsv" \
+        --prefix       "$PREFIX" \
+        --outdir       "$ENGINE_OUTDIR" \
+        --engine       "$ENGINE" \
+        --seed         "$SEED" \
+        --weights-out  "${TAG}.weights.txt" \
+        --rescored-out "${TAG}.rescored_features.tsv" \
+        --psm-out      "${TAG}.psm.target.txt" \
+        --peptide-out  "${TAG}.peptide.target.txt"
