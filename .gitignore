@@ -15,3 +15,6 @@ results/figs/*
 !results/figs/combined*
 context.sif
 scripts/__pycache__/
+example/*
+!example/nontarget.tsv
+!example/target.tsv

@@ -50,7 +50,7 @@ def train(nontarget_path, weights_out, seed, *, feature_cols, label_col, id_col,
             container_cmd=container_cmd, image=image,
         )
 
-        weights_csv = pp_input.with_name(pp_input.stem + ".weights.csv")
+        weights_csv = pp_input.with_name(pp_input.stem + "_weights.csv")
         if not weights_csv.exists():
             sys.exit(f"pyprophet weights file not produced: {weights_csv}")
 
