@@ -1,9 +1,25 @@
 import numpy as np
+from scipy.special import erfc
 
 PI0_FLOOR = 0.05
 RNG_SEED = 42
 NUM_LAMBDA = 100
 MAX_LAMBDA = 0.95
+DEFAULT_NULL = "gaussian"
+
+
+def gaussian_pvalues(target_scores, decoy_scores):
+    target_scores = np.asarray(target_scores, dtype=float)
+    decoy_scores = np.asarray(decoy_scores, dtype=float)
+    if decoy_scores.size == 0:
+        return np.ones_like(target_scores)
+    mu = float(decoy_scores.mean())
+    sigma = float(decoy_scores.std(ddof=0))
+    if not np.isfinite(sigma) or sigma <= 0:
+        return np.where(target_scores > mu, 0.0, 1.0)
+    z = (target_scores - mu) / sigma
+    p = 0.5 * erfc(z / np.sqrt(2.0))
+    return np.clip(p, 0.0, 1.0)
 
 
 def empirical_pvalues(target_scores, decoy_scores):
@@ -16,6 +32,14 @@ def empirical_pvalues(target_scores, decoy_scores):
     idx = np.searchsorted(decoy_sorted, target_scores, side="left")
     p = (n_d - idx + 1.0) / (n_d + 1.0)
     return np.clip(p, 0.0, 1.0)
+
+
+def pvalues(target_scores, decoy_scores, *, null=DEFAULT_NULL):
+    if null == "gaussian":
+        return gaussian_pvalues(target_scores, decoy_scores)
+    if null == "empirical":
+        return empirical_pvalues(target_scores, decoy_scores)
+    raise ValueError(f"unknown null {null!r}; choose 'gaussian' or 'empirical'")
 
 
 def estimate_pi0(p, n_boot=100, rng=None):
@@ -60,8 +84,9 @@ def storey_qvalue(p, pi0):
     return q
 
 
-def qvalues_from_scores(target_scores, decoy_scores, *, rng=None):
-    p = empirical_pvalues(target_scores, decoy_scores)
+def qvalues_from_scores(target_scores, decoy_scores, *, rng=None,
+                          null=DEFAULT_NULL):
+    p = pvalues(target_scores, decoy_scores, null=null)
     pi0 = max(PI0_FLOOR, estimate_pi0(p, rng=rng))
     q = storey_qvalue(p, pi0)
     return q, pi0

@@ -58,13 +58,6 @@ def _score(X, lda):
 
 
 def build_lda(positive, negative):
-    """Direct port of LinearDiscriminantAnalysis.buildModel.
-
-    Drops features whose value range in either class is < RANGE_THRESHOLD
-    (coefficients for those features come out as zero). Uses prior-weighted
-    pooled covariance and the closed-form w = Sigma^-1 (mu_pos - mu_neg).
-    Returns (w, b) in the original feature space, or None on failure.
-    """
     pos = np.asarray(positive, dtype=float)
     neg = np.asarray(negative, dtype=float)
     if pos.ndim != 2 or neg.ndim != 2 or pos.shape[1] != neg.shape[1]:
