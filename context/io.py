@@ -5,6 +5,9 @@ Context identifies the non-feature columns by position, following the Percolator
     col[-2]   peptide
     col[-1]   proteins (multiple proteins are joined by comma)
 ScanNr is looked up by name.
+
+The mprophet engine accepts an additional --input-profile that further
+filters the feature set by name. Percolator is unaffected.
 """
 import pandas as pd
 import numpy as np
@@ -14,6 +17,15 @@ OUT_Q = "q-value"
 OUT_PEP = "posterior_error_prob"
 
 SIGMA_DROP_THRESHOLD = 1e-6
+
+ENCYCLOPEDIA_METADATA_COLS = frozenset({
+    "TD", "pepLength",
+    "charge1", "charge2", "charge3", "charge4",
+    "precursorMass", "RTinMin", "midTime",
+    "numberOfMatchingPeaksAboveThreshold", "primary",
+})
+
+INPUT_PROFILES = ("auto", "pin", "encyclopedia")
 
 
 def read_features_raw(path, *, multi_protein_join=","):
@@ -97,6 +109,21 @@ def near_constant_cols(df, feature_cols, *, threshold=SIGMA_DROP_THRESHOLD):
     num = numeric_features(df, feature_cols)
     sigma = num.std(ddof=0)
     return [c for c in feature_cols if sigma[c] < threshold]
+
+
+def select_training_features(feature_cols, *, profile="auto"):
+    if profile not in INPUT_PROFILES:
+        raise ValueError(
+            f"unknown input profile {profile!r}; choose from {INPUT_PROFILES}"
+        )
+    if profile == "auto":
+        if any(c.startswith(("var_", "main_var_")) for c in feature_cols):
+            return [c for c in feature_cols
+                    if c.startswith(("var_", "main_var_"))]
+        profile = "encyclopedia"
+    if profile == "pin":
+        return list(feature_cols)
+    return [c for c in feature_cols if c not in ENCYCLOPEDIA_METADATA_COLS]
 
 
 def psm_to_peptide(df, peptide_col, score_col=OUT_SCORE):

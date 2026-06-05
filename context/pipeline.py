@@ -4,14 +4,17 @@ import numpy as np
 from .io import (
     FeatureFile, OUT_SCORE, check_headers_match, coerce_label,
     detect_feature_cols, near_constant_cols, numeric_features,
-    psm_to_peptide, read_features_raw, to_final_output, write_pruned_tsv,
+    psm_to_peptide, read_features_raw, select_training_features,
+    to_final_output, write_pruned_tsv,
 )
 from . import percolator
-from . import pyprophet as pp_engine
+from . import mprophet as mprophet_engine
 from .pyisopep import annotate_q_and_pep
 
 
-ENGINES = ("percolator", "pyprophet")
+ENGINES = ("percolator", "mprophet")
+DEFAULT_INPUT_PROFILE = "encyclopedia"
+DEFAULT_SEED_COEFFICIENTS = "encyclopedia"
 
 
 def score_table(df, feature_cols, w, b):
@@ -49,20 +52,31 @@ def _train_percolator(pruned_nt, weights_out, seed, container_cmd):
     return feature_names, w, b
 
 
-def _train_pyprophet(pruned_nt, weights_out, seed, container_cmd, feature_cols):
-    header = list(pruned_nt_header(pruned_nt))
-    id_col = header[0]
-    label_col = header[1]
-    return pp_engine.train(
-        pruned_nt, weights_out, seed=seed,
-        feature_cols=feature_cols, label_col=label_col, id_col=id_col,
-        container_cmd=container_cmd,
+def _train_mprophet(pruned_nt_path, weights_out, seed, *,
+                     pin_feature_cols, input_profile, seed_coefficients_name):
+    nt_df = read_features_raw(pruned_nt_path)
+    label_col = pin_feature_cols_label(pruned_nt_path)
+    training_cols = select_training_features(
+        pin_feature_cols, profile=input_profile,
     )
+    if not training_cols:
+        raise ValueError(
+            f"no training features remain after applying input profile "
+            f"{input_profile!r}; check your feature column names"
+        )
+    seed_coeffs = mprophet_engine.load_seed_coefficients(seed_coefficients_name)
+    feature_names, w, b = mprophet_engine.train(
+        nt_df, training_cols, label_col, seed=seed,
+        seed_coefficients=seed_coeffs,
+    )
+    mprophet_engine.write_weights(weights_out, feature_names, w, b)
+    return feature_names, w, b
 
 
-def pruned_nt_header(path):
+def pin_feature_cols_label(path):
     with open(path, encoding="utf-8") as f:
-        return [c.strip() for c in f.readline().rstrip("\n").split("\t")]
+        header = [c.strip() for c in f.readline().rstrip("\n").split("\t")]
+    return header[1]
 
 
 def _resolve_out(name, *, base, default_name):
@@ -76,7 +90,9 @@ def _resolve_out(name, *, base, default_name):
 
 def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
         container_cmd, psm_out=None, peptide_out=None,
-        rescored_out=None, weights_out=None):
+        rescored_out=None, weights_out=None,
+        input_profile=DEFAULT_INPUT_PROFILE,
+        seed_coefficients=DEFAULT_SEED_COEFFICIENTS):
     if engine not in ENGINES:
         raise ValueError(f"unknown engine {engine!r}; choose from {ENGINES}")
 
@@ -113,8 +129,11 @@ def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
                 pruned_nt, wpath, seed, container_cmd,
             )
         else:
-            feature_names, w, b = _train_pyprophet(
-                pruned_nt, wpath, seed, container_cmd, kept,
+            feature_names, w, b = _train_mprophet(
+                pruned_nt, wpath, seed,
+                pin_feature_cols=kept,
+                input_profile=input_profile,
+                seed_coefficients_name=seed_coefficients,
             )
 
         df = read_features_raw(pruned_tg)

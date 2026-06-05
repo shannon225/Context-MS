@@ -1,0 +1,15 @@
+{
+  "_comment": "Lifted from MProphetReiter.calculateProbabilities. Feature names not present in the input contribute 0 to the seed model.",
+  "HyperScore": 0.6,
+  "xCorrLib": 5.0,
+  "xCorrModel": 0.2,
+  "numberOfMatchingPeaksAboveThreshold": 0.2,
+  "isotopeDotProduct": 0.5,
+  "correlationToPrecursor": 0.4,
+  "isIntegratedSignal": 0.2,
+  "numPeaksWithGoodCorrelation": 0.1,
+  "main_var_Intensity": 1.0,
+  "var_Shape_(weighted)": 4.0,
+  "var_Co-elution_(weighted)": -0.05,
+  "var_Co-elution_count": 1.0
+}
