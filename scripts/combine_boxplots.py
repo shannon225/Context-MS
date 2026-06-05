@@ -11,8 +11,8 @@ import pandas as pd
 
 # /proj/proteoforma_nsc/mamba_env/pymc_py12/bin/python /proj/proteoforma_nsc/Context/scripts/combine_boxplots.py
 
-ENGINES = ("percolator", "pyprophet")
-ENGINE_COLORS = {"percolator": "#1f77b4", "pyprophet": "#d62728"}
+ENGINES = ("percolator", "mprophet")
+ENGINE_COLORS = {"percolator": "#1f77b4", "mprophet": "#d62728"}
 METRICS = ("q-value", "PEP")
 LEVELS = ("PSMs", "peptides")
 LAYOUT = [
@@ -117,7 +117,7 @@ def comparison_grid(base_dir, level, metric):
                 continue
             counts = {eng: _load_counts(base_dir, eng, prefix) for eng in ENGINES}
             _comparison_subplot(ax, counts, level, metric, prefix)
-    fig.suptitle(f"Per-seed acceptance: percolator vs pyprophet "
+    fig.suptitle(f"Per-seed acceptance: percolator vs mprophet "
                  f"({level}, by {metric})", fontsize=14)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     out_path = cross_figs_dir / f"combined.compare.boxplot.{level}.{metric}.png"

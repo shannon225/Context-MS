@@ -37,7 +37,7 @@ def parse_percolator_weights(path):
     return feature_names, np.stack(w_raw, axis=0), np.array(b_raw)
 
 
-def parse_pyprophet_weights(path):
+def parse_mprophet_weights(path):
     df = pd.read_csv(path, sep="\t")
     feat = [str(x) for x in df["feature"].tolist()]
     w = df["weight"].to_numpy(dtype=float)
@@ -55,8 +55,8 @@ def parse_pyprophet_weights(path):
 def parse_weights(path, engine):
     if engine == "percolator":
         return parse_percolator_weights(path)
-    if engine == "pyprophet":
-        return parse_pyprophet_weights(path)
+    if engine == "mprophet":
+        return parse_mprophet_weights(path)
     raise ValueError(f"unknown engine {engine!r}")
 
 
@@ -167,7 +167,7 @@ def build_parser():
     p.add_argument("--outdir", type=Path, required=True,
                    help="Directory containing the per-seed results (typically "
                         "results/<engine>).")
-    p.add_argument("--engine", choices=("percolator", "pyprophet"),
+    p.add_argument("--engine", choices=("percolator", "mprophet"),
                    default="percolator",
                    help="Selects the weight-file format parser.")
     p.add_argument("--q-thresholds", type=float, nargs="+", default=[0.01, 0.05],

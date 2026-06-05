@@ -17,18 +17,30 @@ BASE_OUTDIR="${OUTDIR:-results}"
 ENGINE_OUTDIR="$BASE_OUTDIR/$ENGINE"
 IMAGE="${CONTEXT_SIF:-$REPO_ROOT/context.sif}"
 
+INPUT_PROFILE="${CONTEXT_INPUT_PROFILE:-encyclopedia}"
+SEED_COEFFICIENTS="${CONTEXT_SEED_COEFFICIENTS:-encyclopedia}"
+
 mkdir -p "$BASE_OUTDIR/logs"
 
 if [[ ! -f "$IMAGE" ]]; then
     echo "Container image not found at $IMAGE" >&2
-    echo "Build it once: apptainer build $IMAGE docker://ghcr.io/shannon225/context:containerize" >&2
+    echo "Build it once: apptainer build $IMAGE docker://ghcr.io/shannon225/context:main" >&2
     exit 1
 fi
 
 SEED="$SLURM_ARRAY_TASK_ID"
 TAG="${PREFIX}.seed${SEED}"
 
-apptainer run --bind "$REPO_ROOT:/work" --pwd /work "$IMAGE" \
+EXTRA_ARGS=()
+if [[ "$ENGINE" == "mprophet" ]]; then
+    EXTRA_ARGS=(
+        --input-profile     "$INPUT_PROFILE"
+        --seed-coefficients "$SEED_COEFFICIENTS"
+    )
+fi
+
+apptainer run --bind "$REPO_ROOT:/work" --pwd /work \
+    "$IMAGE" \
     run \
         --nontarget    "features/${PREFIX}_features_nontarget.tsv" \
         --target       "features/${PREFIX}_features_target.tsv" \
@@ -39,4 +51,5 @@ apptainer run --bind "$REPO_ROOT:/work" --pwd /work "$IMAGE" \
         --weights-out  "${TAG}.weights.txt" \
         --rescored-out "${TAG}.rescored_features.tsv" \
         --psm-out      "${TAG}.psm.target.txt" \
-        --peptide-out  "${TAG}.peptide.target.txt"
+        --peptide-out  "${TAG}.peptide.target.txt" \
+        "${EXTRA_ARGS[@]}"

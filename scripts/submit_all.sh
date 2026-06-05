@@ -6,7 +6,7 @@ cd "$REPO_ROOT"
 
 N_SEEDS="${N_SEEDS:-100}"
 PREFIXES=(tcell0pt3p tcell1p tcell3p tcell10p tcell30p)
-ENGINES="${ENGINES:-percolator pyprophet}"
+ENGINES="${ENGINES:-percolator mprophet}"
 OUTDIR="${OUTDIR:-results}"
 PYTHON="${COMBINE_PYTHON:-/proj/proteoforma_nsc/mamba_env/pymc_py12/bin/python3}"
 

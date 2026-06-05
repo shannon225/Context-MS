@@ -10,7 +10,7 @@ transfers the learned linear discriminant to score the target panel.
 FDR + q-values from TDC scores and fits an I-spline q -> PEP, separately at
 the PSM and peptide levels.
 
-**`percolator`** (default) and **`pyprophet`** are supported for the discriminant step.
+**`percolator`** (default) and **`mprophet`** are supported for the discriminant step.
 
 `Context` is distributed as both a [**container image**](https://github.com/shannon225/Context/pkgs/container/context)
 (Podman-, Docker- and Apptainer-compatible) and a [**Python package**](https://pypi.org/project/context-ms)
@@ -26,14 +26,12 @@ exposing the same CLI.
 pip install context-ms
 ```
 
-`Context` is a Python package with two interchangeable external engines:
-Percolator and pyProphet. For PyPI installations, `Context` prefers a local
-executable on `PATH` (`percolator` or `pyprophet`); when neither is present
-it falls back to a container image via Podman or Docker (set with
-`--container-cmd`, default `podman`):
+`Context` is a Python package. The `mprophet` engine has no external
+dependency beyond NumPy/pandas. The `percolator` engine prefers a local
+`percolator` executable on `PATH` and falls back to a container image via
+Podman or Docker (set with `--container-cmd`, default `podman`):
 
 * Percolator container: `ghcr.io/percolator/percolator:master`
-* pyProphet container: `ghcr.io/pyprophet/pyprophet:latest`
 
 ### Container image
 ```bash
@@ -59,6 +57,12 @@ results/
   P.peptide.target.txt            # peptide-level target output
 ```
 
+Weights file format:
+
+* `percolator`: Percolator's native `--weights` output (3 lines per CV bin).
+* `mprophet`: a two-column TSV with `feature` and `weight`, plus a final
+  `__bias__` row carrying the LDA constant.
+
 Each output path can be overridden individually via `--weights-out`,
 `--rescored-out`, `--psm-out`, `--peptide-out`. Values may be plain file
 names (written inside `--outdir`, or inside `--outdir/weights` for the
@@ -78,13 +82,36 @@ context run -h
 | `--target FILE` | *required* | target panel feature TSV |
 | `--prefix STR` | *required* | output prefix for results files |
 | `--outdir DIR` | `results` | output directory |
-| `--engine NAME` | `percolator` | `percolator` or `pyprophet` |
-| `--seed INT` | `1` | seed; passed to Percolator. |
+| `--engine NAME` | `percolator` | `percolator` or `mprophet` |
+| `--seed INT` | `1` | seed; passed to Percolator or to mprophet's RNG |
 | `--container-cmd CMD` | `podman` | container runtime fallback (`podman` or `docker`) |
+| `--input-profile NAME` | `encyclopedia` | mprophet-only; feature-column selection profile (`auto`, `pin`, `encyclopedia`) |
+| `--seed-coefficients NAME_OR_PATH` | `encyclopedia` | mprophet-only; built-in name (`encyclopedia`, `none`) or path to a JSON file mapping feature names to seed-model coefficients |
 | `--weights-out FILE` | `<prefix>.weights.txt` | weights output file name (or path); relative paths land under `<outdir>/weights` |
 | `--rescored-out FILE` | `<prefix>.rescored_features.tsv` | rescored-features output file name (or path); relative paths land under `<outdir>` |
 | `--psm-out FILE` | `<prefix>.psm.target.txt` | PSM-level output file name (or path); relative paths land under `<outdir>` |
 | `--peptide-out FILE` | `<prefix>.peptide.target.txt` | peptide-level output file name (or path); relative paths land under `<outdir>` |
+
+### Input profiles (mprophet only)
+
+* `auto` — if any column starts with `var_` or `main_var_`, keep only
+  those (OpenSWATH/pyprophet convention); otherwise fall back to
+  `encyclopedia`.
+* `pin` — keep every column the pin convention exposes as a feature.
+* `encyclopedia` — drop the metadata columns Encyclopedia's
+  `MProphetFeatureReader` excludes by name (`pepLength`, `charge1..4`,
+  `precursorMass`, `RTinMin`, `midTime`, `numberOfMatchingPeaksAboveThreshold`,
+  `primary`, `TD`).
+
+`--input-profile` has no effect on the percolator engine.
+
+### Seed coefficients (mprophet only)
+
+A JSON dictionary mapping feature column names to starting linear
+coefficients for the seed LDA. Names that don't appear in the input
+contribute 0; if all entries drop out, the seed model is disabled
+and inner iter 0 falls back to ranking by the single best feature.
+Pass `none` to disable the seed model unconditionally.
 
 ---
 
@@ -95,20 +122,20 @@ cd example
 ### PyPI
 
 ```bash
-# Percolator
+# Percolator (default)
 context run \
   --nontarget nontarget.tsv \
   --target    target.tsv \
   --prefix    run01 \
   --outdir    results_run01
 
-# pyProphet
+# mProphet
 context run \
   --nontarget nontarget.tsv \
   --target    target.tsv \
   --prefix    run01 \
   --outdir    results_run01 \
-  --engine    pyprophet
+  --engine    mprophet
 ```
 
 ### Container image
@@ -118,7 +145,7 @@ context run \
 podman run --rm -v "$PWD:/work" -w /work \
   ghcr.io/shannon225/context:main \
   run --nontarget nontarget.tsv --target target.tsv \
-      --prefix run01 --outdir results_run01 --engine pyprophet
+      --prefix run01 --outdir results_run01 --engine mprophet
 
 # Apptainer
 apptainer run --bind "$PWD:/work" --pwd /work context.sif \
@@ -133,5 +160,5 @@ apptainer run --bind "$PWD:/work" --pwd /work context.sif \
 * **Container image:** <https://github.com/shannon225/Context/pkgs/container/context>
 * **GitHub repository:** <https://github.com/shannon225/Context>
 * **Percolator:** <http://percolator.ms>
-* **pyProphet:** <https://github.com/PyProphet/pyprophet>
+* **Encyclopedia (mProphet reference):** <https://bitbucket.org/searleb/encyclopedia>
 * **pyIsoPEP:** <https://github.com/statisticalbiotechnology/smooth_q_to_pep>
