@@ -53,15 +53,15 @@ def read_header(path):
         return [c.strip() for c in f.readline().rstrip("\n").split("\t")]
 
 
-def check_headers_match(nontarget_path, target_path):
-    nt = read_header(nontarget_path)
-    tg = read_header(target_path)
-    if nt != tg:
+def check_headers_match(background_path, reference_path):
+    bg = read_header(background_path)
+    ref = read_header(reference_path)
+    if bg != ref:
         raise ValueError(
-            f"nontarget and target headers do not match.\n"
-            f"  nontarget: {nontarget_path}\n  target:    {target_path}\n"
+            f"background and reference headers do not match.\n"
+            f"  background: {background_path}\n  reference:  {reference_path}\n"
         )
-    return nt
+    return bg
 
 
 class FeatureFile:

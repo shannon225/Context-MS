@@ -6,6 +6,7 @@ import pandas as pd
 from . import fdr as fdr_mod
 from .io import numeric_features
 
+
 SEED_DIR = Path(__file__).parent / "seeds"
 BUILTIN_SEEDS = ("encyclopedia", "none")
 
@@ -16,6 +17,13 @@ DECOY_CAP_RATIO = 10
 RANGE_THRESHOLD = 1e-4
 INITIAL_TOP_FRACTION = 0.15
 INNER_TARGET_FDR = (None, 0.02, 0.01)  # iter 0 uses percentile; rest 1%
+
+STARTING_SCORE_PREFERENCE = (
+    "peakZScore", "peakBGScore", "peakBGSScore",
+    "xTandem", "scribe",
+    "xCorrLib", "xCorrModel",
+    "main_var_Intensity",
+)
 
 
 def load_seed_coefficients(name_or_path):
@@ -130,11 +138,19 @@ def _passing_by_percentile(scores, frac):
     return np.where(scores >= thr)[0]
 
 
-def _passing_by_fdr(target_scores, decoy_scores, target_fdr, rng):
+def _passing_by_fdr(target_scores, decoy_scores, target_fdr):
     if len(target_scores) == 0 or len(decoy_scores) == 0:
         return np.array([], dtype=int)
-    q, _ = fdr_mod.qvalues_from_scores(target_scores, decoy_scores, rng=rng)
+    q = fdr_mod.qvalues_bh(target_scores, decoy_scores)
     return np.where(q < target_fdr)[0]
+
+
+def _named_starting_score(feature_cols):
+    chosen = None
+    for name in STARTING_SCORE_PREFERENCE:
+        if name in feature_cols:
+            chosen = feature_cols.index(name)
+    return chosen
 
 
 def _auto_main_score(target_X, decoy_X):
@@ -149,21 +165,23 @@ def _auto_main_score(target_X, decoy_X):
     return int(np.argmax(score))
 
 
-def _initial_score(train_t, train_d, lda):
+def _initial_score(train_t, train_d, lda, feature_cols):
     if lda is not None:
         return _score(train_t, lda)
-    col = _auto_main_score(train_t, train_d)
+    col = _named_starting_score(feature_cols)
+    if col is None:
+        col = _auto_main_score(train_t, train_d)
     return train_t[:, col]
 
 
-def _inner_loop(train_t, train_d, seed_lda, *, inner_iters, decoy_cap_ratio,
-                 rng):
+def _inner_loop(train_t, train_d, seed_lda, *, feature_cols,
+                 inner_iters, decoy_cap_ratio):
     lda = seed_lda if _is_usable(seed_lda) else None
     prev = None
     best = 0
     for i in range(inner_iters):
         if i == 0:
-            scores_t = _initial_score(train_t, train_d, lda)
+            scores_t = _initial_score(train_t, train_d, lda, feature_cols)
             passing_idx = _passing_by_percentile(scores_t, INITIAL_TOP_FRACTION)
         else:
             if lda is None:
@@ -171,7 +189,7 @@ def _inner_loop(train_t, train_d, seed_lda, *, inner_iters, decoy_cap_ratio,
             scores_t = _score(train_t, lda)
             scores_d = _score(train_d, lda)
             target_fdr = INNER_TARGET_FDR[i] if i < len(INNER_TARGET_FDR) else 0.01
-            passing_idx = _passing_by_fdr(scores_t, scores_d, target_fdr, rng)
+            passing_idx = _passing_by_fdr(scores_t, scores_d, target_fdr)
 
         if len(passing_idx) == 0 or (i > 2 and len(passing_idx) <= best):
             if prev is not None:
@@ -215,7 +233,6 @@ def train(df, feature_cols, label_col, *, seed,
     fold_cap = max_fold_size if max_fold_size is not None else max(n_t, n_d)
 
     rng = np.random.default_rng(seed)
-    fdr_rng = np.random.default_rng(seed + 1)
     kept = []  # (passing_count, lda)
 
     for it in range(outer_iters):
@@ -227,17 +244,17 @@ def train(df, feature_cols, label_col, *, seed,
             continue
 
         lda = _inner_loop(train_t, train_d, seed_lda,
+                          feature_cols=feature_cols,
                           inner_iters=inner_iters,
-                          decoy_cap_ratio=decoy_cap_ratio,
-                          rng=fdr_rng)
+                          decoy_cap_ratio=decoy_cap_ratio)
         if lda is None:
             continue
 
         lda_pass = _passing_by_fdr(_score(test_t, lda),
-                                    _score(test_d, lda), 0.01, fdr_rng)
+                                    _score(test_d, lda), 0.01)
         if _is_usable(seed_lda):
             seed_pass = _passing_by_fdr(_score(test_t, seed_lda),
-                                         _score(test_d, seed_lda), 0.01, fdr_rng)
+                                         _score(test_d, seed_lda), 0.01)
             if len(seed_pass) > len(lda_pass):
                 kept.append((len(seed_pass), seed_lda))
                 continue

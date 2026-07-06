@@ -7,10 +7,10 @@ from .io import INPUT_PROFILES
 
 def _add_input_args(p):
     g = p.add_argument_group("input")
-    g.add_argument("--nontarget", type=Path, required=True,
-                   help="Nontarget (background) feature TSV used to train the engine.")
-    g.add_argument("--target", type=Path, required=True,
-                   help="Target panel feature TSV to score and calibrate.")
+    g.add_argument("--background", type=Path, required=True,
+                   help="Background feature TSV used to train the engine.")
+    g.add_argument("--reference", type=Path, required=True,
+                   help="Reference panel feature TSV to score and calibrate.")
     g.add_argument("--prefix", required=True,
                    help="Output prefix for results files.")
 
@@ -21,23 +21,25 @@ def _add_runtime_args(p):
                    help="Output directory for results files.")
     g.add_argument("--engine", choices=pipeline.ENGINES, default="percolator",
                    help="percolator or mprophet; engine used to train the "
-                        "model and score the target panel.")
+                        "model on the background and score the reference "
+                        "panel.")
     g.add_argument("--container-cmd", default="podman",
                    help="podman or docker; container runtime used as a "
                         "fallback when the engine or pyIsoPEP isn't available "
                         "locally.")
     g.add_argument("--psm-out", default=None,
-                   help="File name (or path) for the PSM-level target output. "
-                        "If relative, written inside --outdir. "
-                        "Default: <prefix>.psm.target.txt")
+                   help="File name (or path) for the PSM-level reference "
+                        "output. If relative, written inside --outdir. "
+                        "Default: <prefix>.psm.reference.txt")
     g.add_argument("--peptide-out", default=None,
-                   help="File name (or path) for the peptide-level target output. "
-                        "If relative, written inside --outdir. "
-                        "Default: <prefix>.peptide.target.txt")
+                   help="File name (or path) for the peptide-level reference "
+                        "output. If relative, written inside --outdir. "
+                        "Default: <prefix>.peptide.reference.txt")
     g.add_argument("--rescored-out", default=None,
                    help="File name (or path) for the rescored-features TSV "
-                        "(targets+decoys). If relative, written inside "
-                        "--outdir. Default: <prefix>.rescored_features.tsv")
+                        "(reference targets + decoys). If relative, written "
+                        "inside --outdir. Default: "
+                        "<prefix>.rescored_features.tsv")
     g.add_argument("--weights-out", default=None,
                    help="File name (or path) for the trained weights file. "
                         "If relative, written inside --outdir/weights. "
@@ -63,17 +65,17 @@ def _add_mprophet_args(p):
 
 
 def _resolve_inputs(args):
-    if not args.nontarget.is_file():
-        sys.exit(f"Not found: {args.nontarget}")
-    if not args.target.is_file():
-        sys.exit(f"Not found: {args.target}")
-    return args.prefix, args.nontarget, args.target
+    if not args.background.is_file():
+        sys.exit(f"Not found: {args.background}")
+    if not args.reference.is_file():
+        sys.exit(f"Not found: {args.reference}")
+    return args.prefix, args.background, args.reference
 
 
 def cmd_run(args):
-    prefix, nt, tg = _resolve_inputs(args)
+    prefix, bg, ref = _resolve_inputs(args)
     pipeline.run(
-        nt, tg,
+        bg, ref,
         outdir=args.outdir, prefix=prefix, seed=args.seed,
         engine=args.engine, container_cmd=args.container_cmd,
         psm_out=args.psm_out, peptide_out=args.peptide_out,

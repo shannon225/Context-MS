@@ -1,14 +1,16 @@
 from pathlib import Path
 import tempfile
 import numpy as np
+import pandas as pd
 from .io import (
-    FeatureFile, OUT_SCORE, check_headers_match, coerce_label,
+    FeatureFile, OUT_SCORE, OUT_Q, OUT_PEP, check_headers_match, coerce_label,
     detect_feature_cols, near_constant_cols, numeric_features,
     psm_to_peptide, read_features_raw, select_training_features,
     to_final_output, write_pruned_tsv,
 )
 from . import percolator
 from . import mprophet as mprophet_engine
+from . import fdr as fdr_mod
 from .pyisopep import annotate_q_and_pep
 
 
@@ -22,10 +24,21 @@ def score_table(df, feature_cols, w, b):
     return X @ np.asarray(w, dtype=float) + float(b)
 
 
-def score_and_calibrate(ff, w, b, *, container_cmd):
+def _score_all(ff, w, b):
     rescored = ff.df.copy()
     rescored[OUT_SCORE] = score_table(rescored, ff.feature_cols, w, b)
+    return rescored
 
+
+def _split_scores(df, label_col, score_col=OUT_SCORE):
+    lab = pd.to_numeric(df[label_col], errors="coerce").fillna(0).astype(int)
+    t_mask = (lab == 1).to_numpy()
+    d_mask = (lab == -1).to_numpy()
+    scores = df[score_col].to_numpy(dtype=float)
+    return t_mask, d_mask, scores
+
+
+def _percolator_q_and_pep(ff, rescored, container_cmd):
     psm_tgt = annotate_q_and_pep(
         rescored, score_col=OUT_SCORE, label_col=ff.label_col,
         container_cmd=container_cmd,
@@ -39,12 +52,32 @@ def score_and_calibrate(ff, w, b, *, container_cmd):
         container_cmd=container_cmd,
     )
     pep_out = to_final_output(pep_tgt, ff)
-    return rescored, psm_out, pep_out
+    return psm_out, pep_out
 
 
-def _train_percolator(pruned_nt, weights_out, seed, container_cmd):
+def _mprophet_q_and_pep_frame(df, label_col):
+    t_mask, d_mask, scores = _split_scores(df, label_col)
+    q, pep = fdr_mod.q_and_pep(scores[t_mask], scores[d_mask])
+    tgt = df.loc[t_mask].copy().reset_index(drop=True)
+    tgt[OUT_Q] = q
+    tgt[OUT_PEP] = pep
+    return tgt.sort_values(OUT_Q, kind="mergesort").reset_index(drop=True)
+
+
+def _mprophet_q_and_pep(ff, rescored):
+    psm_tgt = _mprophet_q_and_pep_frame(rescored, ff.label_col)
+    psm_out = to_final_output(psm_tgt, ff)
+
+    pep_input = psm_to_peptide(rescored, peptide_col=ff.peptide_col,
+                                score_col=OUT_SCORE)
+    pep_tgt = _mprophet_q_and_pep_frame(pep_input, ff.label_col)
+    pep_out = to_final_output(pep_tgt, ff)
+    return psm_out, pep_out
+
+
+def _train_percolator(pruned_bg, weights_out, seed, container_cmd):
     percolator.run_percolator(
-        pruned_nt, weights_out, seed=seed, container_cmd=container_cmd,
+        pruned_bg, weights_out, seed=seed, container_cmd=container_cmd,
     )
     feature_names, w_raw, b_raw = percolator.parse_weights(weights_out)
     w = w_raw.mean(axis=0)
@@ -52,10 +85,10 @@ def _train_percolator(pruned_nt, weights_out, seed, container_cmd):
     return feature_names, w, b
 
 
-def _train_mprophet(pruned_nt_path, weights_out, seed, *,
+def _train_mprophet(pruned_bg_path, weights_out, seed, *,
                      pin_feature_cols, input_profile, seed_coefficients_name):
-    nt_df = read_features_raw(pruned_nt_path)
-    label_col = pin_feature_cols_label(pruned_nt_path)
+    bg_df = read_features_raw(pruned_bg_path)
+    label_col = pin_feature_cols_label(pruned_bg_path)
     training_cols = select_training_features(
         pin_feature_cols, profile=input_profile,
     )
@@ -66,7 +99,7 @@ def _train_mprophet(pruned_nt_path, weights_out, seed, *,
         )
     seed_coeffs = mprophet_engine.load_seed_coefficients(seed_coefficients_name)
     feature_names, w, b = mprophet_engine.train(
-        nt_df, training_cols, label_col, seed=seed,
+        bg_df, training_cols, label_col, seed=seed,
         seed_coefficients=seed_coeffs,
     )
     mprophet_engine.write_weights(weights_out, feature_names, w, b)
@@ -88,7 +121,7 @@ def _resolve_out(name, *, base, default_name):
     return base / p
 
 
-def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
+def run(background_path, reference_path, *, outdir, prefix, seed, engine,
         container_cmd, psm_out=None, peptide_out=None,
         rescored_out=None, weights_out=None,
         input_profile=DEFAULT_INPUT_PROFILE,
@@ -101,12 +134,12 @@ def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
     weights_dir = outdir / "weights"
     weights_dir.mkdir(parents=True, exist_ok=True)
 
-    header = check_headers_match(nontarget_path, target_path)
+    header = check_headers_match(background_path, reference_path)
     feature_cols = detect_feature_cols(header)
 
-    nt_df = read_features_raw(nontarget_path)
-    tg_df = read_features_raw(target_path)
-    drop = near_constant_cols(nt_df, feature_cols)
+    bg_df = read_features_raw(background_path)
+    ref_df = read_features_raw(reference_path)
+    drop = near_constant_cols(bg_df, feature_cols)
     if drop:
         print(f"[prune] dropping {len(drop)} near-constant feature(s): {drop}",
               flush=True)
@@ -120,30 +153,32 @@ def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        pruned_nt = write_pruned_tsv(nt_df, drop, tmp / "nontarget.tsv")
-        pruned_tg = write_pruned_tsv(tg_df, drop, tmp / "target.tsv")
+        pruned_bg = write_pruned_tsv(bg_df, drop, tmp / "background.tsv")
+        pruned_ref = write_pruned_tsv(ref_df, drop, tmp / "reference.tsv")
 
         print(f"[{engine}] {prefix} seed={seed}", flush=True)
         if engine == "percolator":
             feature_names, w, b = _train_percolator(
-                pruned_nt, wpath, seed, container_cmd,
+                pruned_bg, wpath, seed, container_cmd,
             )
         else:
             feature_names, w, b = _train_mprophet(
-                pruned_nt, wpath, seed,
+                pruned_bg, wpath, seed,
                 pin_feature_cols=kept,
                 input_profile=input_profile,
                 seed_coefficients_name=seed_coefficients,
             )
 
-        df = read_features_raw(pruned_tg)
+        df = read_features_raw(pruned_ref)
 
     ff = FeatureFile(df, feature_cols=feature_names)
     coerce_label(ff.df, ff.label_col)
 
-    rescored, psm_df, pep_df = score_and_calibrate(
-        ff, w, b, container_cmd=container_cmd,
-    )
+    rescored = _score_all(ff, w, b)
+    if engine == "percolator":
+        psm_df, pep_df = _percolator_q_and_pep(ff, rescored, container_cmd)
+    else:
+        psm_df, pep_df = _mprophet_q_and_pep(ff, rescored)
 
     rescored_path = _resolve_out(
         rescored_out, base=outdir,
@@ -151,11 +186,11 @@ def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
     )
     psm_path = _resolve_out(
         psm_out, base=outdir,
-        default_name=f"{prefix}.psm.target.txt",
+        default_name=f"{prefix}.psm.reference.txt",
     )
     pep_path = _resolve_out(
         peptide_out, base=outdir,
-        default_name=f"{prefix}.peptide.target.txt",
+        default_name=f"{prefix}.peptide.reference.txt",
     )
     for p in (rescored_path, psm_path, pep_path):
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -164,8 +199,8 @@ def run(nontarget_path, target_path, *, outdir, prefix, seed, engine,
     pep_df.to_csv(pep_path, sep="\t", index=False)
 
     print(f"[write] {rescored_path}  ({len(rescored)} rows including decoys)")
-    print(f"[write] {psm_path}        ({len(psm_df)} target PSMs)")
-    print(f"[write] {pep_path}    ({len(pep_df)} target peptides)")
+    print(f"[write] {psm_path}        ({len(psm_df)} reference target PSMs)")
+    print(f"[write] {pep_path}    ({len(pep_df)} reference target peptides)")
 
     return {
         "engine": engine,
