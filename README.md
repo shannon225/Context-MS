@@ -188,8 +188,8 @@ apptainer run --bind "$PWD:/work" --pwd /work context.sif \
 
 ## Links
 * **PyPI package:** <https://pypi.org/project/context-ms>
-* **Container image:** <https://github.com/shannon225/Context/pkgs/container/context>
-* **GitHub repository:** <https://github.com/shannon225/Context>
+* **Container image:** <https://github.com/shannon225/Context-MS/pkgs/container/context-ms>
+* **GitHub repository:** <https://github.com/shannon225/Context-MS>
 * **Percolator:** <http://percolator.ms>
 * **EncyclopeDIA:** <https://bitbucket.org/searleb/encyclopedia>
 * **pyIsoPEP:** <https://github.com/statisticalbiotechnology/smooth_q_to_pep>

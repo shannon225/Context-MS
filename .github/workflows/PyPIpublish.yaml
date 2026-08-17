@@ -1,4 +1,4 @@
-name: Publish Context Python Package
+name: Publish Context-MS Python Package
 
 on:
   workflow_dispatch:
